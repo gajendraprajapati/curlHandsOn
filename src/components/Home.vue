@@ -31,16 +31,9 @@
 </template>
 
 <script>
-  import axios from 'axios'
-  import Pusher from 'pusher-js'
   import LineChart from '@/components/LineChart'
-
-  const socket = new Pusher('0dc58685cd98594ff213', {
-    cluster: 'ap2',
-    encrypted: true
-  })
-  const channel = socket.subscribe('finance')
-
+  const url = 'ws://localhost:8880/echo'
+  const w = new WebSocket(url)
   export default {
     name: 'home',
     components: {LineChart},
@@ -56,106 +49,37 @@
         entrydate: null
       }
     },
-    created () {
-      this.fetchData()
-      this.fillData()
-    },
-    mounted () {
-      this.fillData()
-    },
     methods: {
-      fillData () {
-        axios.get('/finances')
-          .then(response => {
-            let results = response.data.tempData
-            let xLabel = results.map(a => a.index)
-            let yLabel = results.map(a => a.value)
-            this.xLabel = xLabel
-            this.yLabel = yLabel
-            results.map((tempRes) => {
-              setInterval((tempRes) => {
-                this.datacollection = {
-                  labels: tempRes.index,
-                  datasets: [
-                    {
-                      label: 'Generated Value',
-                      backgroundColor: '#f87979',
-                      data: tempRes.value
-                    }
-                  ]
-                }
-              }, 20000)
-            })
-            this.datacollection = {
-              labels: this.xLabel,
-              datasets: [
-                {
-                  label: 'Generated Value',
-                  backgroundColor: '#f87979',
-                  data: this.yLabel
-                }
-              ]
-            }
-          })
-          .catch(error => {
-            console.log(error)
-          })
-      },
       addDetails () {
         let startPoint = this.startVal
         let endPoint = this.endVal
         let incrementValue = this.increment
-        axios.post('/expense/add', {
-          start: startPoint,
-          end: endPoint,
-          gradient: incrementValue
-        })
-          .then(response => {
-            this.startVal = ''
-            this.endVal = ''
-            this.increment = ''
-            channel.bind('new-expense', function (data) {
-              let results = response.data.tempData
-              let xLabel = results.map(a => a.index)
-              let yLabel = results.map(a => a.value)
-              this.xLabel = xLabel
-              this.yLabel = yLabel
-              this.datacollection = {
-                labels: this.xLabel,
-                datasets: [
-                  {
-                    label: 'Generated Value',
-                    backgroundColor: 'transparent',
-                    pointBorderColor: '#f87979',
-                    data: this.yLabel
-                  }
-                ]
-              }
-            })
-          })
-          .catch(error => {
-            console.log(error)
-          })
-      },
+        // let s = startPoint.toString()+endPoint.toString()+
+        // w.onmessage = () => {
 
-      fetchData () {
-        channel.bind('new-expense', resData => {
-          let results = resData.data.tempData
-          let xLabel = results.map(a => a.index)
-          let yLabel = results.map(a => a.value)
-          this.xLabel = xLabel
-          this.yLabel = yLabel
+        // }
+        let cData = []
+        w.send(startPoint.toString() + ',' + endPoint.toString() + ',' + incrementValue.toString())
+        w.onmessage = (e) => {
+          let rawData = e.data.split(',')
+          rawData.map((t, index) => {
+            cData.push({value: t,
+              index: index})
+          })
+          let xLabel = cData.map(a => a.index)
+          let yLabel = cData.map(a => a.value)
           this.datacollection = {
-            labels: this.xLabel,
+            labels: xLabel,
             datasets: [
               {
                 label: 'Generated Value',
-                backgroundColor: '#f87979',
-                data: this.yLabel
+                backgroundColor: 'transparent',
+                pointBorderColor: '#f87979',
+                data: yLabel
               }
             ]
           }
-        })
+        }
       }
     }
   }
